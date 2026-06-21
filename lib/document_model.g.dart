@@ -24,13 +24,16 @@ class DocumentAdapter extends TypeAdapter<Document> {
       cardNumber: fields[4] as String,
       nameOnCard: fields[5] as String,
       learnerNumber: fields[6] as String,
+      frontImagePath: fields[7] as String?,
+      backImagePath: fields[8] as String?,
+      manualFilePath: fields[9] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Document obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +47,13 @@ class DocumentAdapter extends TypeAdapter<Document> {
       ..writeByte(5)
       ..write(obj.nameOnCard)
       ..writeByte(6)
-      ..write(obj.learnerNumber);
+      ..write(obj.learnerNumber)
+      ..writeByte(7)
+      ..write(obj.frontImagePath)
+      ..writeByte(8)
+      ..write(obj.backImagePath)
+      ..writeByte(9)
+      ..write(obj.manualFilePath);
   }
 
   @override

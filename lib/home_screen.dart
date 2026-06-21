@@ -5,6 +5,7 @@ import 'add_document_screen.dart';
 import 'document_model.dart';
 import 'category_detail_screen.dart';
 import 'attention_required_screen.dart';
+import 'scan_card.dart'; // Import the ScanCardScreen
 
 // ─── MAIN APP DASHBOARD (BRANDED UI) MAIN VAULT HOME SCREEN───────────────────────────────────
 class MainVaultHomeScreen extends StatefulWidget {
@@ -313,43 +314,65 @@ const SizedBox(height: 24),
   }
 
   Widget _buildQuickAction(IconData icon, String label, BuildContext context) {
-  return GestureDetector(
-    behavior: HitTestBehavior.opaque, // This makes the whole button area clickable
-    onTap: () {
-      if (label == 'Add Document') {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => AddDocumentScreen()),
-        );
-      } else if (label == 'View All') {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const CategoryDetailScreen(categoryTitle: null),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () async {
+        if (label == 'Add Document') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => AddDocumentScreen()),
+          );
+        } else if (label == 'Scan Card') {
+          // 1. Launch the scanner and wait for it to return paths
+          final result = await Navigator.push<Map<String, String?>>(
+            context,
+            MaterialPageRoute(builder: (context) => const ScanCardScreen()),
+          );
+
+          // 2. If pictures were successfully taken, pass them to AddDocumentScreen
+          if (result != null && context.mounted) {
+            final frontPath = result['frontImage'];
+            final backPath = result['backImage'];
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddDocumentScreen(
+                  preloadedFrontImagePath: frontPath,
+                  preloadedBackImagePath: backPath,
+                ),
+              ),
+            );
+          }
+        } else if (label == 'View All') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const CategoryDetailScreen(categoryTitle: null),
+            ),
+          );
+        }
+        // Future actions like 'Share Docs' can go here
+      },
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2A),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: brandOrange, size: 28),
           ),
-        );
-      }
-      // Future actions like 'Scan Card' or 'Share Docs' will go here
-    },
-    child: Column(
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            borderRadius: BorderRadius.circular(16),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+            textAlign: TextAlign.center,
           ),
-          child: Icon(icon, color: brandOrange, size: 28),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildCategoryTile(IconData icon, String title, String subtitle, Box<Document> box) {
   // Automatically count how many docs are in this specific category

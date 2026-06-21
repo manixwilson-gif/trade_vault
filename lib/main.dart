@@ -13,17 +13,22 @@ const String SUPABASE_ANON_KEY = 'sb_publishable_tENzkYPcCCiFIyitM1LMWA_KK3qxEKj
 void main() async {
   // 1. Ensure Flutter is ready
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 2. Initialise Supabase (The Cloud Database)
+
+  FlutterError.onError = (details) {
+  FlutterError.dumpErrorToConsole(details);
+  print('CRITICAL STARTUP ERROR: ${details.exception}');
+};  
+ 
+  // 2. Initialise Hive (The Offline Vault)
+  await Hive.initFlutter();
+    Hive.registerAdapter(DocumentAdapter()); 
+  await Hive.openBox<Document>('vaultBox'); 
+
+   // 3. Initialise Supabase (The Cloud Database)
   await Supabase.initialize(
     url: SUPABASE_URL,
     anonKey: SUPABASE_ANON_KEY,
   );
-
-  // 3. Initialise Hive (The Offline Vault)
-  await Hive.initFlutter();
-    Hive.registerAdapter(DocumentAdapter()); 
-  await Hive.openBox<Document>('vaultBox'); 
 
   // 4. Run Trade Vault!
   runApp(const TradeVaultApp()); // (Ensure this matches your main widget name)

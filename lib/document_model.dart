@@ -12,6 +12,10 @@ class Document extends HiveObject {
   @HiveField(4) final String cardNumber;
   @HiveField(5) final String nameOnCard;     // NEW
   @HiveField(6) final String learnerNumber;  // NEW
+  @HiveField(7) final String? frontImagePath; // Optional field for storing the path to the scanned image
+  @HiveField(8) final String? backImagePath;  // Optional field for storing the path to the scanned image
+  @HiveField(9) final String manualFilePath; // Optional field for storing the path to the manually added file
+
 
   Document({
     required this.id,
@@ -21,5 +25,8 @@ class Document extends HiveObject {
     required this.cardNumber,
     required this.nameOnCard,    // NEW
     required this.learnerNumber, // NEW
+    this.frontImagePath,         // Optional field for storing the path to the scanned image
+    this.backImagePath,          // Optional field for storing the path to the scanned image
+    required this.manualFilePath, // Optional field for storing the path to the manually added file
   });
 }

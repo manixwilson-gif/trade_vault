@@ -2,10 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Make sure to add this to pubspec.yaml for date formatting!
 import 'package:hive_flutter/hive_flutter.dart';
 import 'document_model.dart';
+import 'dart:io';
+import 'scan_card.dart'; // Import the ScanCardScreen
 
 class AddDocumentScreen extends StatefulWidget {
   final Document? documentToEdit;
-  const AddDocumentScreen({super.key, this.documentToEdit});
+  // New paths coming from the ScanCardScreen
+  final String? preloadedFrontImagePath;
+  final String? preloadedBackImagePath;
+
+  const AddDocumentScreen({
+    super.key, 
+    this.documentToEdit,
+    this.preloadedFrontImagePath,
+    this.preloadedBackImagePath,
+  });
 
   @override
   State<AddDocumentScreen> createState() => _AddDocumentScreenState();
@@ -27,19 +38,31 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   String _selectedCategory = 'Safety Cards';
   DateTime? _expiryDate;
   
-  // PASTE THE INITSTATE CODE RIGHT HERE:
+  // Local state variables to hold the image paths during this session
+  String? _frontImagePath;
+  String? _backImagePath;
+
   @override
   void initState() {
     super.initState();
-    // Check if we are editing
+
+    // 1. Check if we are editing an existing card and populate fields
     if (widget.documentToEdit != null) {
       final doc = widget.documentToEdit!;
       _titleController.text = doc.title;
       _numberController.text = doc.cardNumber;
-      _nameOnCardController.text = doc.nameOnCard;      // ADD THIS
-      _learnerNumberController.text = doc.learnerNumber; // ADD THIS
+      _nameOnCardController.text = doc.nameOnCard;
+      _learnerNumberController.text = doc.learnerNumber;
       _selectedCategory = doc.category;
       _expiryDate = doc.expiryDate;
+      
+      // Load existing images if editing a previously scanned/uploaded card
+      _frontImagePath = doc.frontImagePath;
+      _backImagePath = doc.backImagePath;
+    } else {
+      // 2. Otherwise, check if new scanned images are arriving from the camera flow
+      _frontImagePath = widget.preloadedFrontImagePath;
+      _backImagePath = widget.preloadedBackImagePath;
     }
   }
   
@@ -243,6 +266,55 @@ const SizedBox(height: 20),
                 ),
               ),
               const SizedBox(height: 40),
+              // ◄ IMAGE SAVE PREVIEW SECTION:
+            if (_frontImagePath != null || _backImagePath != null) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Scanned Cards Preview', 
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (_frontImagePath != null) ...[
+                    Column(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_frontImagePath!),
+                            width: 120,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text('Front', style: TextStyle(color: Colors.white, fontSize: 10)),
+                      ],
+                    ),
+                  ],
+                  if (_backImagePath != null) ...[
+                    Column(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_backImagePath!),
+                            width: 120,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text('Back', style: TextStyle(color: Colors.white, fontSize: 10)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
 
                 // 7. SAVE BUTTON
               SizedBox(
@@ -296,6 +368,9 @@ const SizedBox(height: 20),
       cardNumber: _numberController.text.trim(),
       nameOnCard: _nameOnCardController.text.trim(),     // ADD THIS
       learnerNumber: _learnerNumberController.text.trim(), // ADD THIS
+      frontImagePath: _frontImagePath, // ◄ Add the front image path
+      backImagePath: _backImagePath,   // ◄ Add the back image path
+      manualFilePath: "", // Assuming no manual file path for now
     );
 
     // 5. Lock it in the vault! (put works for both new and existing keys)
@@ -314,8 +389,18 @@ const SizedBox(height: 20),
     _numberController.clear();
     _nameOnCardController.clear();
     _learnerNumberController.clear();
-  }
-  },
+    setState(() {
+                        _frontImagePath = null;
+                        _backImagePath = null;
+                        _expiryDate = null;
+                        // Category can reset to default if preferred
+                        _selectedCategory = 'Safety Cards'; 
+                      });
+
+                      // Pop back to the home screen automatically after securing
+                      Navigator.pop(context);
+                    }
+                  },
   
                   style: ElevatedButton.styleFrom(
                     backgroundColor: brandOrange,
