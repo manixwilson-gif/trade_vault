@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'add_document_screen.dart';
 import 'document_model.dart';
-import 'category_detail_screen.dart';
-import 'attention_required_screen.dart';
 import 'home_screen.dart';
 
 const String SUPABASE_URL = 'https://nuhtspjhmsurhanuzjtm.supabase.co';

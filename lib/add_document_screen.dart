@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart'; // Make sure to add this to pubspec.yaml for date formatting!
 import 'package:hive_flutter/hive_flutter.dart';
 import 'document_model.dart';
@@ -81,7 +82,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       context: context,
       initialDate: DateTime.now().add(const Duration(days: 365)), // Default to 1 year from now
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3650)), // 10 years out
+      lastDate: DateTime.now().add(const Duration(days: 14600)), // 40 years out
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -101,6 +102,63 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         _expiryDate = picked;
       });
     }
+  }
+// ◄ STEP 3 CODE DROPPED HERE
+  void _showAttachmentOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: brandCharcoal,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: brandOrange),
+                title: const Text('Scan Trade Card (Front & Back)', style: TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(context); // Dismiss the bottom sheet
+                  
+                  // Make sure ScanCardScreen matches your physical scanner class name
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ScanCardScreen()),
+                  );
+
+                  if (result != null && result is Map<String, String?>) {
+                    setState(() {
+                      _frontImagePath = result['frontImage'];
+                      _backImagePath = result['backImage'];
+                    });
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file, color: Colors.white70),
+                title: const Text('Select PDF, JPEG, or PNG', style: TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(context); // Dismiss the bottom sheet
+                       
+                  FilePickerResult? pickedResult = await FilePicker.pickFiles(
+                     type: FileType.custom,
+                     allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                  );
+
+                  if (pickedResult != null && pickedResult.files.single.path != null) {
+                    setState(() {
+                      _frontImagePath = pickedResult.files.single.path;
+                      _backImagePath = null; 
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -266,6 +324,7 @@ const SizedBox(height: 20),
                 ),
               ),
               const SizedBox(height: 40),
+
               // ◄ IMAGE SAVE PREVIEW SECTION:
             if (_frontImagePath != null || _backImagePath != null) ...[
               const SizedBox(height: 16),
@@ -314,6 +373,22 @@ const SizedBox(height: 20),
                 ],
               ),
               const SizedBox(height: 20),
+              const SizedBox(height: 24),
+              // ◄ The New Combined Attachment Button
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: brandOrange, width: 1.5),
+                  foregroundColor: brandOrange,
+                  minimumSize: const Size.fromHeight(55),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.attach_file),
+                label: const Text('Attach Trade Card or Document'),
+                onPressed: () => _showAttachmentOptions(context),
+              ),
+              const SizedBox(height: 24),
             ],
 
                 // 7. SAVE BUTTON
@@ -385,43 +460,45 @@ const SizedBox(height: 20),
     );
 
     // 7. Clear the title text so it's ready for the next one
-    _titleController.clear(); 
-    _numberController.clear();
-    _nameOnCardController.clear();
-    _learnerNumberController.clear();
     setState(() {
-                        _frontImagePath = null;
-                        _backImagePath = null;
-                        _expiryDate = null;
-                        // Category can reset to default if preferred
-                        _selectedCategory = 'Safety Cards'; 
-                      });
+                      // 1. Clear text controllers
+                      _titleController.clear(); 
+                      _numberController.clear();
+                      _nameOnCardController.clear();
+                      _learnerNumberController.clear();
+                      
+                      // 2. Wipe image paths and reset defaults
+                      _frontImagePath = null;
+                      _backImagePath = null;
+                      _expiryDate = null;
+                      _selectedCategory = 'Safety Cards'; 
+                    });
 
-                      // Pop back to the home screen automatically after securing
-                      Navigator.pop(context);
-                    }
-                  },
-  
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: brandOrange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Secure to Vault',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    // 3. Pop back to the home screen immediately
+                    Navigator.pop(context);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: brandOrange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ),
-            ],
-        ),
-        ),
+                child: const Text(
+                  'Secure to Vault',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ), // ◄ Closes the ElevatedButton or Padding
+            ), // ◄ Closes the Expanded or Container wrapping the button
+          ], // ◄ Closes the children array of your Column/Row
+        ), // ◄ Closes the Column or Form
+      ), // ◄ Closes the SingleChildScrollView or Padding
       ),
-    );
-  }
-}
+    ); // ◄ Closes the Scaffold and requires the semicolon here!
+  } // ◄ Closes the build method
+} // ◄ Closes the _AddDocumentScreenState class
+
 InputDecoration _inputDecoration(String label) {
   return InputDecoration(
     labelText: label,
