@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:intl/intl.dart'; // Make sure to add this to pubspec.yaml for date formatting!
 import 'package:hive_flutter/hive_flutter.dart';
 import 'document_model.dart';
@@ -141,15 +141,17 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 onTap: () async {
                   Navigator.pop(context); // Dismiss the bottom sheet
                        
-                  FilePickerResult? pickedResult = await FilePicker.pickFiles(
-                     type: FileType.custom,
-                     allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                  final typeGroup = XTypeGroup(
+                    label: 'documents',
+                    extensions: ['pdf', 'jpg', 'jpeg', 'png'],
                   );
 
-                  if (pickedResult != null && pickedResult.files.single.path != null) {
+                  final file = await openFile(acceptedTypeGroups: [typeGroup]);
+
+                  if (file != null) {
                     setState(() {
-                      _frontImagePath = pickedResult.files.single.path;
-                      _backImagePath = null; 
+                      _frontImagePath = file.path;
+                      _backImagePath = null;
                     });
                   }
                 },
