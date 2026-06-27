@@ -168,7 +168,7 @@ Row(
       ),
     ),
     const SizedBox(width: 12),
-    _buildStatCard(_daysLeft, 'Days Left'), 
+    _buildStatCard(_daysLeft, 'FREE Days Left'), 
   ],
 ),
 const SizedBox(height: 24),
@@ -325,7 +325,7 @@ const SizedBox(height: 24),
           // 1. Launch the scanner and wait for it to return paths
           final result = await Navigator.push<Map<String, String?>>(
             context,
-            MaterialPageRoute(builder: (context) => const ScanCardScreen()),
+            MaterialPageRoute(builder: (context) => const ScanCardScreen(isSingleShot: false)), // Pass false for multi-shot mode
           );
 
           // 2. If pictures were successfully taken, pass them to AddDocumentScreen

@@ -1,13 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart'; // Used for generating unique timestamp strings
+import 'package:image/image.dart' as img; // Pure Dart image processing
 
 class ScanCardScreen extends StatefulWidget {
-  const ScanCardScreen({super.key});
+  final bool isSingleShot; // ◄ Make sure this is declared here
+  const ScanCardScreen({super.key, required this.isSingleShot});
 
   @override
   State<ScanCardScreen> createState() => _ScanCardScreenState();
@@ -20,64 +22,44 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
   bool isScanningFront = true;
   bool _isInitializing = true;
   bool _isProcessing = false;
-  
+
+    
   String? frontImagePath;
   String? backImagePath;
+  String? _lastCapturedPath;
+
+  // ◄ ADD THIS OVERRIDE FLAG so the instruction dialog says 'Scan Card' instead of 'Front/Back'
+  bool get _isSingleShotMode => widget.isSingleShot;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeCameraFlow();
+      _initializeCameraSystem();
     });
   }
 
-  Future<void> _initializeCameraFlow() async {
+  Future<void> _initializeCameraSystem() async {
     try {
-      // 1. Explicit Camera Permission
+      // 1. Explicit Camera Permission Check
       var status = await Permission.camera.status;
       if (!status.isGranted) {
         status = await Permission.camera.request();
         if (!status.isGranted) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Camera permission is required.')),
+            const SnackBar(content: Text('Camera permission is required to scan cards.')),
           );
           Navigator.pop(context);
           return;
         }
       }
 
-      // 2. Show instruction dialog before initializing viewfinder
+      // 2. Show Instruction Dialog
       if (!mounted) return;
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF121212),
-            title: Text(
-              isScanningFront ? 'Scan Front of Card' : 'Scan Back of Card',
-              style: const TextStyle(color: Colors.white),
-            ),
-            content: Text(
-              isScanningFront 
-                  ? 'Hold phone vertically. Align the FRONT of the card within the orange frame, then tap capture.' 
-                  : 'Flip the card over. Align the BACK of the card within the orange frame, then tap capture.',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B00)),
-                child: const Text('Proceed'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          );
-        },
-      );
+      await showInstructionDialog();
 
-      // 3. Find available cameras and initialize the controller
+      // 3. Initialize Camera Controller
       _cameras = await availableCameras();
       if (_cameras!.isEmpty) throw Exception('No cameras found on device.');
 
@@ -88,7 +70,22 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
       );
 
       await _controller!.initialize();
-      // ◄◄ ADD A SLIGHT ZOOM TO MAGNIFY THE CARD IN THE VIEWFINDER ◄◄
+
+      // ◄ FORCE the flash mode completely off instantly upon initialization
+      try {
+        await _controller!.setFlashMode(FlashMode.off);
+      } catch (e) {
+        // Fail silently if the specific device hardware doesn't permit software flash overrides
+      }
+      
+      // Verify flash stays off on the hardware layer right after the preview mounts
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (_controller != null && _controller!.value.isInitialized) {
+          try {
+            await _controller!.setFlashMode(FlashMode.off);
+          } catch (_) {}
+        }
+      });
       
       if (!mounted) return;
       setState(() {
@@ -104,9 +101,45 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
     }
   }
 
-  Future<String> _getTempFilePath(String fileName) async {
+ Future<void> showInstructionDialog() async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF121212),
+          title: Text(
+            _isSingleShotMode 
+                ? 'Scan Card' 
+                : (isScanningFront ? 'Scan Front of Card' : 'Scan Back of Card'),
+            style: const TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            _isSingleShotMode
+                ? 'Hold phone vertically. Align the card within the orange frame, then tap capture.'
+                : (isScanningFront 
+                    ? 'Hold phone vertically. Align the FRONT of the card within the orange frame, then tap capture.' 
+                    : 'Flip the card over. Align the BACK of the card within the orange frame, then tap capture.'),
+            style: const TextStyle(color: Colors.white70),
+          ),
+         // ◄ ADD THE PROCEED BUTTON BACK IN HERE:
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B00)),
+            child: const Text('Proceed'),
+            onPressed: () => Navigator.of(context).pop(), // Closes the dialog so camera initializes
+          ),
+        ],
+      );
+    },
+  );
+}
+
+  Future<String> _getUniquePersistPath() async {
     final directory = await getTemporaryDirectory();
-    return p.join(directory.path, fileName);
+    final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+    final sideLabel = isScanningFront ? 'front' : 'back';
+    return p.join(directory.path, 'vault_card_${sideLabel}_$timestamp.jpg');
   }
 
   Future<void> _captureImage() async {
@@ -117,62 +150,63 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
     });
 
     try {
-      // Take high-resolution picture
       XFile imageFile = await _controller!.takePicture();
-
-      if (!mounted) return;
-
-      // Hand off to Cropper
-      final CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: imageFile.path,
-        compressQuality: 70,
-        aspectRatio: const CropAspectRatio(ratioX: 1.586, ratioY: 1),
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Adjust Card Bounds',
-            toolbarColor: const Color(0xFF121212),
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: true,
-            hideBottomControls: false,
-          ),
-          IOSUiSettings(
-            title: 'Adjust Card Bounds',
-          ),
-        ],
-      );
 
       if (!mounted) {
         setState(() { _isProcessing = false; });
         return;
       }
 
-      if (croppedFile == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Crop cancelled')),
-        );
-        setState(() { _isProcessing = false; });
+      // 1. Copy full-frame image to unique location using standard I/O
+      final persistPath = await _getUniquePersistPath();
+      final savedFile = await File(imageFile.path).copy(persistPath);
+
+      // 2. Pure Dart processing: Decode and re-encode to ensure data stability across OS versions
+      final rawImageInput = img.decodeImage(await savedFile.readAsBytes());
+      if (rawImageInput != null) {
+        final stabilizedBytes = img.encodeJpg(rawImageInput, quality: 90);
+        await File(savedFile.path).writeAsBytes(stabilizedBytes);
+      }
+
+      // 3. FREEZE PREVIEW: Show the captured image on screen immediately
+      setState(() {
+        _lastCapturedPath = savedFile.path;
+        _isProcessing = false;
+      });
+
+      // 4. HUMAN CONFIRMATION PAUSE: Hold the freeze for 1200 milliseconds
+      await Future.delayed(const Duration(milliseconds: 1200));
+
+      if (!mounted) return;
+
+      // ◄ NEW LOGIC: If we are in single-shot mode, just pop the screen and return the single path!
+      if (_isSingleShotMode) {
+        setState(() {
+          _lastCapturedPath = null;
+        });
+        Navigator.pop(context, {
+          'frontImage': savedFile.path, // We drop it cleanly into the front/only slot
+          'backImage': null,
+        });
         return;
       }
 
-      // Save cropped file locally to temporary directory
-      final fileName = isScanningFront ? 'temp_front.jpg' : 'temp_back.jpg';
-      final savePath = await _getTempFilePath(fileName);
-      final savedFile = await File(croppedFile.path).copy(savePath);
-
+      // Otherwise, run your standard two-sided flow
       if (isScanningFront) {
         setState(() {
           frontImagePath = savedFile.path;
           isScanningFront = false;
-          _isProcessing = false;
+          _lastCapturedPath = null; // Clear the freeze so the camera preview returns
         });
-        // Re-initialize viewfinder for the back of the card
-        _initializeCameraFlow();
+        
+        await showInstructionDialog();
       } else {
         setState(() {
           backImagePath = savedFile.path;
+          _lastCapturedPath = null;
         });
-        // Complete workflow, pass paths back to parent form
+        
+        if (!mounted) return;
         Navigator.pop(context, {
           'frontImage': frontImagePath,
           'backImage': backImagePath,
@@ -186,6 +220,7 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
       );
       setState(() {
         _isProcessing = false;
+        _lastCapturedPath = null;
       });
     }
   }
@@ -223,95 +258,116 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Live Camera Preview stretching across the available space
-          Positioned.fill(
-            child: CameraPreview(_controller!),
-          ),
+          // 1. Live Camera Preview (Only show if we aren't freezing a preview)
+          if (_lastCapturedPath == null)
+            Positioned.fill(
+              child: CameraPreview(_controller!),
+            )
+          else
+          // 2. Frozen Shutter Flash Preview
+            Positioned.fill(
+              child: Image.file(
+                File(_lastCapturedPath!),
+                fit: BoxFit.cover,
+              ),
+            ),
           
-          // Darken the surrounding area to make the framing guide pop
-          ColorFiltered(
-            colorFilter: const ColorFilter.mode(
-              Colors.black54, 
-              BlendMode.srcOut,
-            ),
-            child: Stack(
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    backgroundBlendMode: BlendMode.dstOut,
-                  ),
-                ),
-                // Transparent cutout window matching the credit card aspect ratio
-                Center(
-                  child: Container(
-                    width: 414,
-                    height: 286,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+          // Darken the surrounding area (Skip during actual freeze to keep it clear)
+          if (_lastCapturedPath == null) ...[
+            ColorFiltered(
+              colorFilter: const ColorFilter.mode(
+                Colors.black54, 
+                BlendMode.srcOut,
+              ),
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.black,
+                      backgroundBlendMode: BlendMode.dstOut,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Glowing orange border overlay highlighting the credit card bounds
-          Center(
-            child: IgnorePointer(
-              child: Container(
-                width: 414,
-                height: 286,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFFFF6B00),
-                    width: 3,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-
-          // Shutter Capture Button at the bottom
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              padding: const EdgeInsets.only(bottom: 40),
-              child: _isProcessing
-                  ? const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B00)),
-                    )
-                  : ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF6B00),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
+                  Center(
+                    child: Container(
+                      width: 414,
+                      height: 286,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Capture Image', style: TextStyle(fontSize: 16)),
-                      onPressed: _captureImage,
                     ),
-            ),
-          ),
-
-          // Subtext guide
-          const Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: 110),
-              child: Text(
-                'Fit the card completely inside the orange frame',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+            Center(
+              child: IgnorePointer(
+                child: Container(
+                  width: 414,
+                  height: 286,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xFFFF6B00),
+                      width: 3,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 110),
+                child: Text(
+                  'Fit the card completely inside the orange frame',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+
+          // Shutter Capture Button (Hide during freeze so it doesn't overlap the preview)
+          if (_lastCapturedPath == null)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                padding: const EdgeInsets.only(bottom: 40),
+                child: _isProcessing
+                    ? const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B00)),
+                      )
+                    : ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF6B00),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        icon: const Icon(Icons.camera_alt),
+                        label: const Text('Capture Image', style: TextStyle(fontSize: 16)),
+                        onPressed: _captureImage,
+                      ),
+              ),
+            ),
+
+          // Subtext guide (Properly nested inside the main Stack children array)
+          if (_lastCapturedPath == null)
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 110),
+                child: Text(
+                  'Fit the card completely inside the orange frame',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ),
+            ),
+            
+        ], // Terminates your Stack children list!
+      ), // Closes the Stack
+    ); // Closes the Scaffold
+  } // Closes the build method
+} // Closes the _ScanCardScreenState class
