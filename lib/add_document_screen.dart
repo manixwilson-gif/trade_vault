@@ -105,65 +105,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       });
     }
   }
-// ◄ STEP 3 CODE DROPPED HERE
-  // void _showAttachmentOptions(BuildContext context) {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     backgroundColor: brandCharcoal,
-  //     shape: const RoundedRectangleBorder(
-  //       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-  //     ),
-  //     builder: (BuildContext context) {
-  //       return SafeArea(
-  //         child: Wrap(
-  //           children: [
-  //             ListTile(
-  //               leading: const Icon(Icons.camera_alt, color: brandOrange),
-  //               title: const Text('Scan Trade Card (Front & Back)', style: TextStyle(color: Colors.white)),
-  //               onTap: () async {
-  //                 Navigator.pop(context); // Dismiss the bottom sheet
-                  
-  //                 // Make sure ScanCardScreen matches your physical scanner class name
-  //                 final result = await Navigator.push(
-  //                   context,
-  //                   MaterialPageRoute(builder: (context) => const ScanCardScreen()),
-  //                 );
-
-  //                 if (result != null && result is Map<String, String?>) {
-  //                   setState(() {
-  //                     _frontImagePath = result['frontImage'];
-  //                     _backImagePath = result['backImage'];
-  //                   });
-  //                 }
-  //               },
-  //             ),
-  //             ListTile(
-  //               leading: const Icon(Icons.insert_drive_file, color: Colors.white70),
-  //               title: const Text('Select PDF, JPEG, or PNG', style: TextStyle(color: Colors.white)),
-  //               onTap: () async {
-  //                 Navigator.pop(context); // Dismiss the bottom sheet
-                       
-  //                 final typeGroup = XTypeGroup(
-  //                   label: 'documents',
-  //                   extensions: ['pdf', 'jpg', 'jpeg', 'png'],
-  //                 );
-
-  //                 final file = await openFile(acceptedTypeGroups: [typeGroup]);
-
-  //                 if (file != null) {
-  //                   setState(() {
-  //                     _frontImagePath = file.path;
-  //                     _backImagePath = null;
-  //                   });
-  //                 }
-  //               },
-  //             ),
-  //           ],
-  //         ),
-  //       );
-  //     },
-  //   );
-  // }
 
   @override
   void dispose() {

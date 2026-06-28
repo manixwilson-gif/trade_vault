@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'document_model.dart'; // Ensure this points to where your Document model lives
-import 'add_document_screen.dart';
+import 'view_document_screen.dart';
 
 class CategoryDetailScreen extends StatefulWidget {
   final String? categoryTitle;
@@ -77,31 +77,32 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: docs.length,
-           itemBuilder: (context, index) {
-  final doc = docs[index];
-  return InkWell(
-    onTap: () {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => AddDocumentScreen(documentToEdit: doc),
+  padding: const EdgeInsets.all(20),
+  itemCount: docs.length,
+  itemBuilder: (context, index) {
+    final doc = docs[index];
+    return InkWell(
+      onTap: () {
+        // ◄ LAUNCH THE SECURE, READ-ONLY VIEW INSTEAD
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ViewDocumentScreen(document: doc),
+          ),
+        );
+      },
+      child: Card(
+        color: const Color(0xFF1E1E1E),
+        margin: const EdgeInsets.only(bottom: 12),
+        child: ListTile(
+          title: Text(doc.title, style: const TextStyle(color: Colors.white)),
+          subtitle: Text(
+            'No: ${doc.cardNumber}\nExpires: ${doc.expiryDate.day}/${doc.expiryDate.month}/${doc.expiryDate.year}', 
+            style: const TextStyle(color: Colors.grey),
+          ),
+          trailing: const Icon(Icons.chevron_right, color: Color(0xFFFF7A00)),
         ),
-      );
-    },
-    child: Card(
-      color: const Color(0xFF1E1E1E),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        title: Text(doc.title, style: const TextStyle(color: Colors.white)),
-        subtitle: Text(
-          'No: ${doc.cardNumber}\nExpires: ${doc.expiryDate.day}/${doc.expiryDate.month}/${doc.expiryDate.year}', 
-          style: const TextStyle(color: Colors.grey),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFFFF7A00)),
       ),
-    ),
-  );
+    );
 },
           );
         },

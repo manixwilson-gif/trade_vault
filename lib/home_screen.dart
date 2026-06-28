@@ -6,6 +6,7 @@ import 'document_model.dart';
 import 'category_detail_screen.dart';
 import 'attention_required_screen.dart';
 import 'scan_card.dart'; // Import the ScanCardScreen
+import 'bulk_share_screen.dart'; // Import the BulkShareScreen
 
 // ─── MAIN APP DASHBOARD (BRANDED UI) MAIN VAULT HOME SCREEN───────────────────────────────────
 class MainVaultHomeScreen extends StatefulWidget {
@@ -349,8 +350,13 @@ const SizedBox(height: 24),
               builder: (context) => const CategoryDetailScreen(categoryTitle: null),
             ),
           );
+        } else if (label == 'Share Docs') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const BulkShareScreen(),
+            ),
+          );
         }
-        // Future actions like 'Share Docs' can go here
       },
       child: Column(
         children: [

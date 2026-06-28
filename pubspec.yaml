@@ -38,7 +38,7 @@ dependencies:
   file_selector: ^1.0.0 # ◄ Integrates native document selection
   photo_view: ^0.14.0 # ◄ Add this package for image zooming and panning
   open_file: 3.5.11  # ◄ Add this package for opening files with native apps
-  # share_plus: ^6.3.0 # ◄ Add this package for sharing files
+  share_plus: ^12.0.2 # ◄ Add this package for sharing files
 
 
     # The following adds the Cupertino Icons font to your application.
@@ -108,4 +108,4 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 dependency_overrides:
   intl: ^0.18.0
-  win32: ^3.0.0
+  win32: ^5.5.0
